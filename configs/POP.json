@@ -1,0 +1,151 @@
+{
+  "name": "POP",
+  "scheduleMode": "cluster",
+  "sectionsPerCluster": 1,
+  "departments": [
+    {
+      "name": "CS",
+      "sections": 1
+    }
+  ],
+  "numDays": 5,
+  "numSlots": 8,
+  "subjects": [
+    {
+      "name": "ADA",
+      "hours": 4
+    },
+    {
+      "name": "ADA LAB",
+      "hours": 2
+    },
+    {
+      "name": "MC",
+      "hours": 4
+    },
+    {
+      "name": "MC LAB",
+      "hours": 2
+    },
+    {
+      "name": "MATHS",
+      "hours": 5
+    },
+    {
+      "name": "DBMS",
+      "hours": 4
+    },
+    {
+      "name": "DBMS LAB",
+      "hours": 2
+    },
+    {
+      "name": "YOGA",
+      "hours": 1
+    },
+    {
+      "name": "BIT",
+      "hours": 2
+    },
+    {
+      "name": "UHV",
+      "hours": 1
+    },
+    {
+      "name": "LIBRARY",
+      "hours": 2
+    }
+  ],
+  "teachers": [
+    {
+      "name": "HARISH",
+      "id": "101",
+      "subjects": [
+        "ADA",
+        "ADA LAB"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "HARIKA",
+      "id": "102",
+      "subjects": [
+        "DBMS",
+        "DBMS LAB"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "MOHAN",
+      "id": "103",
+      "subjects": [
+        "MC LAB",
+        "MC"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "MAHA",
+      "id": "104",
+      "subjects": [
+        "MATHS"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "SOBHA",
+      "id": "105",
+      "subjects": [
+        "YOGA"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "SUBHI",
+      "id": "106",
+      "subjects": [
+        "UHV"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "SORY",
+      "id": "107",
+      "subjects": [
+        "BIT"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "YELLOW",
+      "id": "108",
+      "subjects": [
+        "LIBRARY",
+        "UHV",
+        "BIT",
+        "ADA"
+      ],
+      "cluster": 1
+    }
+  ],
+  "rooms": [
+    {
+      "name": "504",
+      "type": "Classroom"
+    },
+    {
+      "name": "503",
+      "type": "Classroom"
+    },
+    {
+      "name": "502",
+      "type": "Classroom"
+    }
+  ],
+  "constraints": {
+    "avoidTeacherClash": true,
+    "avoidRoomClash": true,
+    "fixedLunch": true,
+    "labConsecutive": false
+  }
+}

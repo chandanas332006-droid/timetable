@@ -1,0 +1,314 @@
+{
+  "name": "H1",
+  "scheduleMode": "cluster",
+  "sectionsPerCluster": 2,
+  "departments": [
+    {
+      "name": "CS",
+      "sections": 4
+    }
+  ],
+  "numDays": 5,
+  "numSlots": 6,
+  "subjects": [
+    {
+      "name": "DBMS",
+      "hours": 6
+    },
+    {
+      "name": "ADA",
+      "hours": 4
+    },
+    {
+      "name": "Maths",
+      "hours": 4
+    },
+    {
+      "name": "MC",
+      "hours": 4
+    },
+    {
+      "name": "Yoga",
+      "hours": 2
+    },
+    {
+      "name": "BIT",
+      "hours": 2
+    },
+    {
+      "name": "MC LAB",
+      "hours": 2
+    },
+    {
+      "name": "ADA LAB",
+      "hours": 2
+    },
+    {
+      "name": "UHV",
+      "hours": 1
+    },
+    {
+      "name": "JAVA / C++",
+      "hours": 2
+    },
+    {
+      "name": "LIBRARY",
+      "hours": 1
+    },
+    {
+      "name": "PROCTORING",
+      "hours": 1
+    },
+    {
+      "name": "PLACEMENT",
+      "hours": 2
+    }
+  ],
+  "teachers": [
+    {
+      "name": "harish",
+      "id": "101",
+      "subjects": [
+        "ADA",
+        "ADA LAB"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "MOHAN",
+      "id": "102",
+      "subjects": [
+        "MC LAB",
+        "MC"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "HAARIKA",
+      "id": "103",
+      "subjects": [
+        "DBMS"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "PRIYANKA",
+      "id": "104",
+      "subjects": [
+        "Maths"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "DURGADEVI",
+      "id": "105",
+      "subjects": [
+        "JAVA / C++"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "MANEESHA",
+      "id": "106",
+      "subjects": [
+        "JAVA / C++"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "CHAITHRA",
+      "id": "107",
+      "subjects": [
+        "JAVA / C++"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "SANJANA",
+      "id": "108",
+      "subjects": [
+        "BIT"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "ARUNA",
+      "id": "109",
+      "subjects": [
+        "Yoga"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "MAHALAKSHMI",
+      "id": "110",
+      "subjects": [
+        "UHV"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "BHAVYA",
+      "id": "111",
+      "subjects": [
+        "ADA",
+        "ADA LAB"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "SAVITHA",
+      "id": "112",
+      "subjects": [
+        "MC",
+        "MC LAB"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "SWETHA",
+      "id": "113",
+      "subjects": [
+        "DBMS"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "NEHA",
+      "id": "114",
+      "subjects": [
+        "Maths"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "AKSHAY ARYA",
+      "id": "115",
+      "subjects": [
+        "BIT"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "MALINI",
+      "id": "116",
+      "subjects": [
+        "ADA",
+        "ADA LAB"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "ARUNA",
+      "id": "109",
+      "subjects": [
+        "ADA",
+        "ADA LAB"
+      ],
+      "cluster": 2
+    },
+    {
+      "name": "ASHWINI",
+      "id": "117",
+      "subjects": [
+        "MC",
+        "MC LAB"
+      ],
+      "cluster": 2
+    },
+    {
+      "name": "CHAITANYA",
+      "id": "118",
+      "subjects": [
+        "DBMS"
+      ],
+      "cluster": 2
+    },
+    {
+      "name": "PUNEETHA",
+      "id": "119",
+      "subjects": [
+        "Maths"
+      ],
+      "cluster": 2
+    },
+    {
+      "name": "RENITA BLOSSUM",
+      "id": "120",
+      "subjects": [
+        "BIT"
+      ],
+      "cluster": 2
+    },
+    {
+      "name": "GOWTHAMI",
+      "id": "121",
+      "subjects": [
+        "UHV"
+      ],
+      "cluster": 2
+    },
+    {
+      "name": "MALIKARJUN",
+      "id": "122",
+      "subjects": [
+        "Yoga"
+      ],
+      "cluster": 2
+    },
+    {
+      "name": "SRUJANA",
+      "id": "123",
+      "subjects": [
+        "ADA",
+        "ADA LAB"
+      ],
+      "cluster": 2
+    },
+    {
+      "name": "DURGA BHAVANI",
+      "id": "124",
+      "subjects": [
+        "MC",
+        "MC LAB"
+      ],
+      "cluster": 2
+    },
+    {
+      "name": "GIREESH",
+      "id": "125",
+      "subjects": [
+        "DBMS"
+      ],
+      "cluster": 2
+    }
+  ],
+  "rooms": [
+    {
+      "name": "404",
+      "type": "Classroom"
+    },
+    {
+      "name": "504",
+      "type": "Classroom"
+    },
+    {
+      "name": "503",
+      "type": "Classroom"
+    },
+    {
+      "name": "403",
+      "type": "Classroom"
+    },
+    {
+      "name": "403",
+      "type": "Classroom"
+    }
+  ],
+  "constraints": {
+    "avoidTeacherClash": true,
+    "avoidRoomClash": true,
+    "fixedLunch": true,
+    "labConsecutive": false
+  }
+}

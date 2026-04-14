@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Interactive College Timetable Generator — Design custom timetables for your institution with smart scheduling, constraint handling, and beautiful exports.">
+    <title>TimetableAI — Interactive College Timetable Generator</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>">
+    <!-- Vercel Analytics -->
+    <script>
+      window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+    </script>
+    <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+
+    <!-- Animated Background -->
+    <div class="bg-pattern"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="loading-spinner">
+                <div class="ring"></div>
+                <div class="ring"></div>
+                <div class="ring"></div>
+            </div>
+            <h3>Generating Your Timetable</h3>
+            <p>Applying scheduling algorithms<span class="loading-dots"></span></p>
+        </div>
+    </div>
+
+    <!-- Save Config Modal -->
+    <div class="modal-overlay" id="saveModal">
+        <div class="modal-content">
+            <h3>💾 Save Configuration</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 0.9rem;">Save your current setup for future use.</p>
+            <div class="form-group">
+                <label>Configuration Name</label>
+                <input type="text" class="form-input" id="configNameInput" placeholder="e.g. Spring 2026 Setup">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary btn-small" onclick="closeSaveModal()">Cancel</button>
+                <button class="btn btn-primary btn-small" onclick="saveConfiguration()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div class="app-container">
+
+        <!-- Header -->
+        <header class="app-header" id="appHeader">
+            <div class="logo-icon">📅</div>
+            <h1>TimetableAI</h1>
+            <p class="subtitle">Design custom timetables for your institution with smart scheduling and conflict resolution</p>
+        </header>
+
+        <!-- Stepper -->
+        <nav class="stepper-container" id="stepperContainer">
+            <div class="stepper" id="stepper">
+                <!-- Steps rendered by JS -->
+            </div>
+        </nav>
+
+        <!-- Wizard Card -->
+        <main class="wizard-card" id="wizardCard">
+            <!-- Step content rendered by JS -->
+        </main>
+
+        <!-- Results Section -->
+        <section class="results-section" id="resultsSection">
+            <!-- Timetable results rendered by JS -->
+        </section>
+
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

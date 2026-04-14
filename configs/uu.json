@@ -1,0 +1,162 @@
+{
+  "name": "uu",
+  "scheduleMode": "cluster",
+  "sectionsPerCluster": 1,
+  "departments": [
+    {
+      "name": "CS",
+      "sections": 2
+    }
+  ],
+  "numDays": 5,
+  "numSlots": 8,
+  "subjects": [
+    {
+      "name": "Ds",
+      "hours": 6
+    },
+    {
+      "name": "os",
+      "hours": 4
+    },
+    {
+      "name": "ds",
+      "hours": 3
+    },
+    {
+      "name": "maths",
+      "hours": 6
+    },
+    {
+      "name": "dbms",
+      "hours": 6
+    },
+    {
+      "name": "ic",
+      "hours": 1
+    },
+    {
+      "name": "yoga",
+      "hours": 1
+    }
+  ],
+  "teachers": [
+    {
+      "name": "c1",
+      "id": "1",
+      "subjects": [
+        "Ds"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "c2",
+      "id": "2",
+      "subjects": [
+        "os"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "c3",
+      "id": "3",
+      "subjects": [
+        "ds",
+        "maths"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "c4",
+      "id": "4",
+      "subjects": [
+        "dbms"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "c5",
+      "id": "5",
+      "subjects": [
+        "ic"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "c6",
+      "id": "6",
+      "subjects": [
+        "yoga"
+      ],
+      "cluster": 1
+    },
+    {
+      "name": "c27",
+      "id": "7",
+      "subjects": [
+        "Ds"
+      ],
+      "cluster": 2
+    },
+    {
+      "name": "c28",
+      "id": "8",
+      "subjects": [
+        "os"
+      ],
+      "cluster": 2
+    },
+    {
+      "name": "c29",
+      "id": "9",
+      "subjects": [
+        "ds",
+        "Ds"
+      ],
+      "cluster": 2
+    },
+    {
+      "name": "c210",
+      "id": "10",
+      "subjects": [
+        "maths"
+      ],
+      "cluster": 2
+    },
+    {
+      "name": "c211",
+      "id": "11",
+      "subjects": [
+        "dbms"
+      ],
+      "cluster": 2
+    },
+    {
+      "name": "c 212",
+      "id": "12",
+      "subjects": [
+        "ic"
+      ],
+      "cluster": 2
+    }
+  ],
+  "rooms": [
+    {
+      "name": "505",
+      "type": "Classroom"
+    },
+    {
+      "name": "506",
+      "type": "Classroom"
+    }
+  ],
+  "constraints": {
+    "avoidTeacherClash": true,
+    "avoidRoomClash": true,
+    "fixedLunch": true,
+    "labConsecutive": false,
+    "enforceFirstPeriod": true,
+    "teacherBreaks": true,
+    "maxConsecutiveClasses": 1
+  }
+}
