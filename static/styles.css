@@ -89,7 +89,7 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
-/* ── Animated Background ── */
+/* ── Animated Gradient Dots Background ── */
 .bg-pattern {
     position: fixed;
     top: 0;
@@ -99,73 +99,98 @@ body {
     pointer-events: none;
     z-index: 0;
     overflow: hidden;
+    background-color: var(--bg-primary);
+    background-image:
+        radial-gradient(circle at 50% 50%, transparent 1.5px, var(--bg-primary) 0 8px, transparent 8px),
+        radial-gradient(circle at 50% 50%, transparent 1.5px, var(--bg-primary) 0 8px, transparent 8px),
+        radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.35), transparent 60%),
+        radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.3), transparent 60%),
+        radial-gradient(circle at 50% 50%, rgba(167, 139, 250, 0.25), transparent 60%),
+        radial-gradient(ellipse at 50% 50%, rgba(59, 130, 246, 0.2), transparent 60%);
+    background-size:
+        10px 17.32px,
+        10px 17.32px,
+        200% 200%,
+        200% 200%,
+        200% 200%,
+        200% 17.32px;
+    background-position:
+        0px 0px, 5px 8.66px,
+        0% 0%,
+        0% 0%,
+        0% 0%,
+        0% 0px;
+    animation: gradientDotsMove 25s linear infinite, gradientDotsHue 8s linear infinite;
 }
 
 .bg-pattern::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: 
-        radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.06) 0%, transparent 50%),
-        radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.05) 0%, transparent 50%),
-        radial-gradient(circle at 50% 50%, rgba(167, 139, 250, 0.03) 0%, transparent 50%);
-    animation: bgFloat 20s ease-in-out infinite;
+    display: none;
 }
 
-@keyframes bgFloat {
-    0%, 100% { transform: translate(0, 0) rotate(0deg); }
-    33% { transform: translate(30px, -30px) rotate(1deg); }
-    66% { transform: translate(-20px, 20px) rotate(-1deg); }
+@keyframes gradientDotsMove {
+    0% {
+        background-position:
+            0px 0px, 5px 8.66px,
+            0% 0%, 0% 0%, 0% 0%, 0% 0px;
+    }
+    100% {
+        background-position:
+            0px 0px, 5px 8.66px,
+            800% 400%, 1000% -400%, -1200% -600%, 400% 17.32px;
+    }
 }
 
-/* Floating orbs */
+@keyframes gradientDotsHue {
+    0% { filter: hue-rotate(0deg); }
+    100% { filter: hue-rotate(360deg); }
+}
+
+/* Floating orbs — enhanced to complement dots */
 .orb {
     position: fixed;
     border-radius: 50%;
-    filter: blur(80px);
-    opacity: 0.4;
+    filter: blur(100px);
+    opacity: 0.25;
     pointer-events: none;
     z-index: 0;
+    mix-blend-mode: screen;
 }
 
 .orb-1 {
-    width: 400px;
-    height: 400px;
-    background: rgba(99, 102, 241, 0.12);
-    top: -100px;
-    right: -100px;
-    animation: orbFloat1 15s ease-in-out infinite;
+    width: 500px;
+    height: 500px;
+    background: rgba(99, 102, 241, 0.18);
+    top: -150px;
+    right: -150px;
+    animation: orbFloat1 18s ease-in-out infinite;
 }
 
 .orb-2 {
-    width: 300px;
-    height: 300px;
-    background: rgba(139, 92, 246, 0.1);
-    bottom: -50px;
-    left: -50px;
-    animation: orbFloat2 18s ease-in-out infinite;
+    width: 400px;
+    height: 400px;
+    background: rgba(139, 92, 246, 0.15);
+    bottom: -100px;
+    left: -100px;
+    animation: orbFloat2 22s ease-in-out infinite;
 }
 
 .orb-3 {
-    width: 250px;
-    height: 250px;
-    background: rgba(167, 139, 250, 0.08);
+    width: 350px;
+    height: 350px;
+    background: rgba(167, 139, 250, 0.12);
     top: 50%;
     left: 50%;
-    animation: orbFloat3 12s ease-in-out infinite;
+    animation: orbFloat3 15s ease-in-out infinite;
 }
 
 @keyframes orbFloat1 {
     0%, 100% { transform: translate(0, 0); }
-    50% { transform: translate(-40px, 40px); }
+    50% { transform: translate(-50px, 50px); }
 }
 
 @keyframes orbFloat2 {
     0%, 100% { transform: translate(0, 0); }
-    50% { transform: translate(30px, -30px); }
+    50% { transform: translate(40px, -40px); }
 }
 
 @keyframes orbFloat3 {
