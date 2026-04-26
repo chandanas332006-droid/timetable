@@ -26,6 +26,7 @@ const state = {
     numDays: 5,
     numSlots: 6,
     draggingLabBlockId: '',
+    selectedLabBlockId: '',  // for click-to-assign
     retrySeed: null,
     lastGenerationError: '',
     results: null,
@@ -474,7 +475,7 @@ function renderStep4(card) {
         <div class="step-header">
             <span class="step-badge">🧩 Step 5 of ${STEPS.length}</span>
             <h2>Lab Assignment Grid — ${YEAR_LABELS[state.activeYear-1]}</h2>
-            <p>Drag lab blocks into the timetable. Invalid targets highlight in red.</p>
+            <p>Assign each lab block to a specific day, starting slot, and room. Labs occupy consecutive slots.</p>
         </div>
         <div class="form-group" style="max-width: 320px;">
             <label>Section</label>
@@ -482,53 +483,69 @@ function renderStep4(card) {
                 ${sections.map(s => `<option value="${escapeHtml(s)}" ${s === currentSection ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
             </select>
         </div>
-        <div class="lab-dnd-layout">
+
+        <div class="lab-assign-layout">
+            <!-- Unassigned Lab Blocks -->
             <div class="entry-card">
-                <h4 style="margin-bottom: 8px;">Unassigned Lab Blocks</h4>
-                <div class="lab-block-pool">
+                <h4 style="margin-bottom: 12px;">📦 Unassigned Lab Blocks</h4>
+                ${unassigned.length === 0 ? '<div style="color: var(--text-muted); padding: 12px;">All lab blocks assigned! ✅</div>' : ''}
+                <div class="lab-assign-list">
                     ${unassigned.map(block => `
-                        <div class="lab-block" draggable="true" data-block-id="${escapeHtml(block.id)}">
-                            <div><strong>${escapeHtml(block.subject)}</strong></div>
-                            ${availableLabRooms.length ? `
-                                <select class="form-select lab-room-select" data-block-id="${escapeHtml(block.id)}" style="margin-top:6px;">
+                        <div class="lab-assign-block" data-block-id="${escapeHtml(block.id)}">
+                            <div class="lab-assign-block-header">
+                                <strong>🧪 ${escapeHtml(block.subject)}</strong>
+                                <span class="lab-duration-badge">${block.duration} slots</span>
+                            </div>
+                            <div class="lab-assign-controls">
+                                <select class="form-select lab-assign-day" data-block-id="${escapeHtml(block.id)}">
+                                    ${Array.from({length: state.numDays}, (_, d) => `<option value="${d}">${DAY_NAMES[d]}</option>`).join('')}
+                                </select>
+                                <select class="form-select lab-assign-slot" data-block-id="${escapeHtml(block.id)}">
+                                    ${Array.from({length: state.numSlots}, (_, s) => `<option value="${s}">Slot ${s + 1}</option>`).join('')}
+                                </select>
+                                <select class="form-select lab-assign-room" data-block-id="${escapeHtml(block.id)}">
                                     ${availableLabRooms.map(r => `
                                         <option value="${escapeHtml(r.room_number)}" ${String(block.room) === String(r.room_number) ? 'selected' : ''}>
                                             ${escapeHtml(r.room_number)}${r.lab_name ? ' • ' + escapeHtml(r.lab_name) : ''}
                                         </option>
                                     `).join('')}
                                 </select>
-                            ` : `<div>${escapeHtml(block.room)}</div>`}
-                            <div>${block.duration} slots</div>
+                                <button class="btn btn-primary btn-small lab-place-btn" data-block-id="${escapeHtml(block.id)}">Place ✓</button>
+                            </div>
+                            <div class="lab-assign-feedback" data-block-id="${escapeHtml(block.id)}" style="font-size:0.8rem;margin-top:4px;min-height:18px;"></div>
                         </div>
-                    `).join('') || '<div style="color: var(--text-muted)">No unassigned blocks.</div>'}
-                </div>
-                <h4 style="margin: 12px 0 8px;">Assigned (drag to re-place)</h4>
-                <div class="lab-block-pool">
-                    ${assignedCurrent.map(a => `
-                        <div class="lab-block assigned" draggable="true" data-block-id="${escapeHtml(a.blockId)}">
-                            <div><strong>${escapeHtml(a.subject)}</strong></div>
-                            <div>${escapeHtml(DAY_NAMES[a.day])} Slot ${a.slot + 1}</div>
-                            <div>${a.duration} slots • ${escapeHtml(a.room)}</div>
-                        </div>
-                    `).join('') || '<div style="color: var(--text-muted)">No assignments yet.</div>'}
+                    `).join('')}
                 </div>
             </div>
+
+            <!-- Visual Grid + Assigned -->
             <div class="entry-card">
-                <h4 style="margin-bottom: 8px;">Drop Grid</h4>
-                <span id="labRealtimeWarning" style="color:var(--warning);font-size:0.85rem;"></span>
-                <div class="form-group" style="margin-top:10px;">
-                    <label>Available Lab Rooms for this slot</label>
-                    <select id="labRoomChoice" class="form-select">
-                        <option value="">Drag lab into a slot</option>
-                    </select>
-                </div>
+                <h4 style="margin-bottom: 12px;">📅 Schedule Grid</h4>
                 ${renderLabDropGrid(currentSection)}
+
+                <h4 style="margin: 16px 0 8px;">✅ Assigned Labs</h4>
+                <div class="lab-assign-list">
+                    ${assignedCurrent.length === 0 ? '<div style="color: var(--text-muted); padding: 8px;">No labs assigned yet for this section.</div>' : ''}
+                    ${assignedCurrent.map(a => `
+                        <div class="lab-block assigned">
+                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                                <div>
+                                    <strong>${escapeHtml(a.subject)}</strong>
+                                    <span style="margin-left:8px;font-size:0.85rem;color:var(--text-secondary);">
+                                        ${escapeHtml(DAY_NAMES[a.day])} • Slot ${a.slot + 1}–${a.slot + a.duration} • ${escapeHtml(a.room)}
+                                    </span>
+                                </div>
+                                <button class="btn btn-secondary btn-small lab-remove-btn" data-remove-block-id="${escapeHtml(a.blockId)}" style="padding:4px 10px;font-size:0.8rem;">Remove ×</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
             </div>
         </div>
 
         ${renderWizardActions(true, true)}
     `;
-    bindStep4DnD();
+    bindStep4Events();
 }
 
 function renderStep5(card) {
@@ -1244,9 +1261,30 @@ function validateLabAssignment(candidate, ignoreBlockId = null) {
 
 function ensureLabBlocksInitialized() {
     if (!yc().activeLabSection) yc().activeLabSection = getSections()[0] || '';
-    if (yc().labBlocks.length > 0) return;
     const sections = getSections();
     const labSubjects = yc().subjects.filter(s => s.type === 'LAB' && s.name.trim());
+
+    // Build expected block IDs to detect if re-init is needed
+    const expectedIds = new Set();
+    labSubjects.forEach(subject => {
+        const sessions = Math.max(1, Math.round((subject.hours || 1) / (subject.lab_duration || 2)));
+        for (const section of sections) {
+            for (let i = 0; i < sessions; i++) {
+                expectedIds.add(`${section}__${subject.name}__${i}`);
+            }
+        }
+    });
+
+    // Check if existing blocks match expected — skip if already correct
+    const existingIds = new Set(yc().labBlocks.map(b => b.id));
+    const sameSize = expectedIds.size === existingIds.size;
+    const sameContent = sameSize && [...expectedIds].every(id => existingIds.has(id));
+    if (sameContent && expectedIds.size > 0) return;
+
+    // Preserve existing assignments that are still valid
+    const oldAssignments = yc().labAssignments.filter(a => expectedIds.has(a.blockId));
+
+    yc().labBlocks = [];
     labSubjects.forEach(subject => {
         const sessions = Math.max(1, Math.round((subject.hours || 1) / (subject.lab_duration || 2)));
         for (const section of sections) {
@@ -1261,6 +1299,8 @@ function ensureLabBlocksInitialized() {
             }
         }
     });
+
+    yc().labAssignments = oldAssignments;
 }
 
 function renderLabDropGrid(section) {
@@ -1268,25 +1308,98 @@ function renderLabDropGrid(section) {
     let body = '';
     for (let day = 0; day < state.numDays; day++) {
         body += `<tr><td>${DAY_NAMES[day]}</td>`;
-        for (let slot = 0; slot < state.numSlots; slot++) {
-            const existing = yc().labAssignments.find(a => a.section === section && a.day === day && slot >= a.slot && slot < (a.slot + a.duration));
-            if (existing && slot > existing.slot) {
-                body += `<td class="lab-grid-cell lab-occupied-cont"></td>`;
+        let slot = 0;
+        while (slot < state.numSlots) {
+            const existing = yc().labAssignments.find(a => a.section === section && a.day === day && a.slot === slot);
+            if (existing) {
+                // Use data attribute instead of inline onclick with escaped blockId
+                body += `<td class="lab-grid-cell lab-occupied" colspan="${existing.duration}">
+                    <div style="font-weight:600;">${escapeHtml(existing.subject)}</div>
+                    <div style="font-size:.75rem;opacity:.8;">${escapeHtml(existing.room)}</div>
+                    <button class="remove-lab-assign" data-remove-block-id="${escapeHtml(existing.blockId)}" title="Remove" style="position:absolute;top:2px;right:4px;background:none;border:none;color:var(--danger);cursor:pointer;font-size:1rem;line-height:1;">×</button>
+                </td>`;
+                slot += existing.duration;
                 continue;
             }
-            if (existing && slot === existing.slot) {
-                body += `<td class="lab-grid-cell lab-occupied" colspan="${existing.duration}">${escapeHtml(existing.subject)}<br><span style="font-size:.75rem">${escapeHtml(existing.room)}</span></td>`;
-                slot += (existing.duration - 1);
+            // Check if this slot is part of a multi-slot lab that started earlier
+            const spanning = yc().labAssignments.find(a => a.section === section && a.day === day && slot > a.slot && slot < (a.slot + a.duration));
+            if (spanning) {
+                // Skip — already covered by colspan
+                slot++;
                 continue;
             }
             body += `<td class="lab-grid-cell lab-drop-cell" data-section="${escapeHtml(section)}" data-day="${day}" data-slot="${slot}"></td>`;
+            slot++;
         }
         body += '</tr>';
     }
     return `<div class="timetable-wrapper"><table class="timetable lab-drop-table"><thead><tr><th>Day \\ Slot</th>${header}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
-function bindStep4DnD() {
+function removeLabAssignment(blockId) {
+    // Unescape HTML entities that may have been encoded in data attributes
+    const decoded = blockId.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#039;/g, "'");
+    const idx = yc().labAssignments.findIndex(a => a.blockId === decoded || a.blockId === blockId);
+    if (idx >= 0) {
+        yc().labAssignments.splice(idx, 1);
+        renderStep();
+    }
+}
+
+function decodeBlockId(raw) {
+    return String(raw || '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#039;/g, "'");
+}
+
+function findBlockById(blockId) {
+    const decoded = decodeBlockId(blockId);
+    return yc().labBlocks.find(b => b.id === decoded || b.id === blockId);
+}
+
+function resolveLabRoom(block) {
+    // Block's own room > first available lab
+    if (block.room && String(block.room).trim()) return String(block.room).trim();
+    const firstLab = yc().labs.find(l => (l.room_number || '').trim());
+    return firstLab ? String(firstLab.room_number).trim() : '';
+}
+
+function placeLabBlock(blockId, section, day, slot, roomOverride) {
+    const decoded = decodeBlockId(blockId);
+    const block = findBlockById(decoded);
+    if (!block) {
+        showToast('Lab block not found.', 'error');
+        return false;
+    }
+
+    const roomToUse = roomOverride || resolveLabRoom(block);
+    if (!roomToUse) {
+        showToast('No lab room available. Add lab rooms first.', 'error');
+        return false;
+    }
+
+    const candidate = {
+        blockId: decoded,
+        subject: block.subject,
+        section: section,
+        room: roomToUse,
+        day,
+        slot,
+        duration: block.duration
+    };
+    const validation = validateLabAssignment(candidate, decoded);
+    if (!validation.ok) {
+        showToast(validation.message, 'error');
+        return false;
+    }
+    // Remove existing assignment for this block if re-placing
+    const oldIdx = yc().labAssignments.findIndex(a => a.blockId === decoded);
+    if (oldIdx >= 0) yc().labAssignments.splice(oldIdx, 1);
+    yc().labAssignments.push(candidate);
+    state.draggingLabBlockId = '';
+    return true;
+}
+
+function bindStep4Events() {
+    // Section selector
     const sectionSelect = document.getElementById('activeLabSection');
     if (sectionSelect) {
         sectionSelect.addEventListener('change', (e) => {
@@ -1295,108 +1408,103 @@ function bindStep4DnD() {
         });
     }
 
-    document.querySelectorAll('.lab-room-select').forEach(sel => {
-        sel.addEventListener('change', (e) => {
-            const blockId = e.target.dataset.blockId;
-            const block = yc().labBlocks.find(b => b.id === blockId);
-            if (!block) return;
-            block.room = e.target.value;
+    // Remove buttons
+    document.querySelectorAll('.lab-remove-btn[data-remove-block-id]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeLabAssignment(btn.dataset.removeBlockId);
         });
     });
 
-    document.querySelectorAll('.lab-block').forEach(block => {
-        block.addEventListener('dragstart', (e) => {
-            state.draggingLabBlockId = block.dataset.blockId;
-            e.dataTransfer.setData('text/plain', block.dataset.blockId);
-        });
-    });
-
-    document.querySelectorAll('.lab-drop-cell').forEach(cell => {
-        cell.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            const blockId = e.dataTransfer.getData('text/plain');
-            const block = yc().labBlocks.find(b => b.id === blockId);
-            if (!block) return;
-
-            const labRoomChoice = document.getElementById('labRoomChoice');
-            const availableRooms = yc().labs
-                .filter(l => (l.room_number || '').trim())
-                .map(l => ({
-                    room_number: String(l.room_number).trim(),
-                    lab_name: String(l.lab_name || l.lab_id || '').trim(),
-                }));
-
-            const validRooms = [];
-            let firstError = 'No available labs for this time';
-
-            for (const r of availableRooms) {
-                const candidate = {
-                    blockId,
-                    subject: block.subject,
-                    section: cell.dataset.section,
-                    room: r.room_number,
-                    day: parseInt(cell.dataset.day),
-                    slot: parseInt(cell.dataset.slot),
-                    duration: block.duration
-                };
-                const validation = validateLabAssignment(candidate, blockId);
-                if (validation.ok) {
-                    validRooms.push(r);
-                } else if (!firstError || firstError === 'No available labs for this time') {
-                    firstError = validation.message;
-                }
+    // Place buttons — the main form-based assignment
+    document.querySelectorAll('.lab-place-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const rawBlockId = btn.dataset.blockId;
+            const blockId = decodeBlockId(rawBlockId);
+            const block = findBlockById(blockId);
+            if (!block) {
+                showToast('Lab block not found.', 'error');
+                return;
             }
 
-            cell.classList.remove('invalid-drop', 'valid-drop');
-            const warning = document.getElementById('labRealtimeWarning');
-            if (validRooms.length > 0) {
-                cell.classList.add('valid-drop');
-                if (labRoomChoice) {
-                    labRoomChoice.innerHTML = validRooms.map(r => `
-                        <option value="${escapeHtml(r.room_number)}">${escapeHtml(r.room_number)}${r.lab_name ? ' • ' + escapeHtml(r.lab_name) : ''}</option>
-                    `).join('');
-                    labRoomChoice.value = validRooms[0].room_number;
-                }
-                if (warning) warning.textContent = '';
-            } else {
-                cell.classList.add('invalid-drop');
-                if (labRoomChoice) {
-                    labRoomChoice.innerHTML = `<option value="">No available rooms</option>`;
-                }
-                if (warning) warning.textContent = firstError || 'No available labs for this time';
+            // Read values from this block's dropdowns
+            const daySelect = document.querySelector(`.lab-assign-day[data-block-id="${rawBlockId}"]`);
+            const slotSelect = document.querySelector(`.lab-assign-slot[data-block-id="${rawBlockId}"]`);
+            const roomSelect = document.querySelector(`.lab-assign-room[data-block-id="${rawBlockId}"]`);
+            const feedbackEl = document.querySelector(`.lab-assign-feedback[data-block-id="${rawBlockId}"]`);
+
+            const day = parseInt(daySelect.value);
+            const slot = parseInt(slotSelect.value);
+            const room = roomSelect ? roomSelect.value : block.room;
+            const section = yc().activeLabSection;
+
+            if (!room) {
+                showToast('Select a lab room first.', 'error');
+                return;
             }
-        });
-        cell.addEventListener('dragleave', () => {
-            cell.classList.remove('invalid-drop', 'valid-drop');
-        });
-        cell.addEventListener('drop', (e) => {
-            e.preventDefault();
-            const blockId = e.dataTransfer.getData('text/plain');
-            const block = yc().labBlocks.find(b => b.id === blockId);
-            if (!block) return;
 
-            const labRoomChoice = document.getElementById('labRoomChoice');
-            const selectedRoom = labRoomChoice ? labRoomChoice.value : '';
-            const roomToUse = selectedRoom || block.room;
-
+            // Validate
             const candidate = {
-                blockId,
+                blockId: blockId,
                 subject: block.subject,
-                section: cell.dataset.section,
-                room: roomToUse,
-                day: parseInt(cell.dataset.day),
-                slot: parseInt(cell.dataset.slot),
-                duration: block.duration
+                section: section,
+                room: room,
+                day: day,
+                slot: slot,
+                duration: block.duration,
             };
             const validation = validateLabAssignment(candidate, blockId);
             if (!validation.ok) {
+                if (feedbackEl) {
+                    feedbackEl.textContent = '❌ ' + validation.message;
+                    feedbackEl.style.color = 'var(--danger)';
+                }
                 showToast(validation.message, 'error');
                 return;
             }
+
+            // Remove old assignment if exists
             const oldIdx = yc().labAssignments.findIndex(a => a.blockId === blockId);
             if (oldIdx >= 0) yc().labAssignments.splice(oldIdx, 1);
+
+            // Push new assignment
             yc().labAssignments.push(candidate);
+            showToast(`${block.subject} placed on ${DAY_NAMES[day]} Slot ${slot+1}–${slot+block.duration}`, 'success');
             renderStep();
+        });
+    });
+
+    // Live validation feedback when changing day/slot dropdowns
+    document.querySelectorAll('.lab-assign-day, .lab-assign-slot, .lab-assign-room').forEach(sel => {
+        sel.addEventListener('change', () => {
+            const rawBlockId = sel.dataset.blockId;
+            const blockId = decodeBlockId(rawBlockId);
+            const block = findBlockById(blockId);
+            if (!block) return;
+
+            const daySelect = document.querySelector(`.lab-assign-day[data-block-id="${rawBlockId}"]`);
+            const slotSelect = document.querySelector(`.lab-assign-slot[data-block-id="${rawBlockId}"]`);
+            const roomSelect = document.querySelector(`.lab-assign-room[data-block-id="${rawBlockId}"]`);
+            const feedbackEl = document.querySelector(`.lab-assign-feedback[data-block-id="${rawBlockId}"]`);
+
+            const day = parseInt(daySelect.value);
+            const slot = parseInt(slotSelect.value);
+            const room = roomSelect ? roomSelect.value : block.room;
+            const section = yc().activeLabSection;
+
+            const candidate = {
+                blockId, subject: block.subject, section, room, day, slot, duration: block.duration,
+            };
+            const validation = validateLabAssignment(candidate, blockId);
+            if (feedbackEl) {
+                if (validation.ok) {
+                    feedbackEl.textContent = '✅ Valid placement';
+                    feedbackEl.style.color = 'var(--success)';
+                } else {
+                    feedbackEl.textContent = '⚠️ ' + validation.message;
+                    feedbackEl.style.color = 'var(--warning)';
+                }
+            }
         });
     });
 }

@@ -297,14 +297,20 @@ class TimetableGenerator:
             if not self.constraints.get('enforceFirstPeriod', True):
                 return True
             for section in self.sections:
+                empty_first = 0
                 for day in range(self.num_days):
-                    if grids[section][day][0] is None and remaining_by_section.get(section, 0) <= 0:
-                        return False
+                    if grids[section][day][0] is None:
+                        empty_first += 1
+                remaining = remaining_by_section.get(section, 0)
+                # If we don't have enough remaining units to fill the empty first periods, fail
+                if remaining < empty_first:
+                    return False
             return True
 
         def get_candidates(unit: Dict[str, str]) -> List[Tuple[int, int]]:
             section = unit['section']
             teacher = unit['teacher']
+            subject = unit['subject']
             candidates: List[Tuple[int, int]] = []
             for day in range(self.num_days):
                 for slot in range(self.num_slots):
@@ -318,14 +324,28 @@ class TimetableGenerator:
                     if consecutive > self._teacher_max_consecutive(teacher):
                         continue
                     candidates.append((day, slot))
-            candidates.sort(key=lambda ds: (0 if ds[1] == 0 else 1, ds[0], ds[1]))
+
+            # Sort: prioritize first-period slots, then days with fewer classes for this subject (spread),
+            # then by slot index to fill earlier slots first
+            def candidate_score(ds):
+                d, s = ds
+                # Count how many times this subject already placed on this day for this section
+                same_subject_on_day = sum(
+                    1 for sl in range(self.num_slots)
+                    if grids[section][d][sl] is not None and grids[section][d][sl].get('subject') == subject
+                )
+                # Count total slots filled per day (spread across days)
+                filled_on_day = sum(1 for sl in range(self.num_slots) if grids[section][d][sl] is not None)
+                return (0 if s == 0 else 1, same_subject_on_day, filled_on_day, d, s)
+
+            candidates.sort(key=candidate_score)
             return candidates
 
         _bt_start = time.time()
         _bt_attempts = [0]
         _bt_timed_out = [False]
-        _BT_TIME_LIMIT = 5.0
-        _BT_ATTEMPT_LIMIT = 50000
+        _BT_TIME_LIMIT = 10.0
+        _BT_ATTEMPT_LIMIT = 200000
 
         def backtrack(remaining_units: List[Dict[str, str]]) -> bool:
             if _bt_timed_out[0]:
@@ -393,7 +413,45 @@ class TimetableGenerator:
         if not success:
             log("[INFO] Switching to greedy fallback")
             warnings.append("Strict scheduling failed; using relaxed greedy placement")
+
+            # Clear all theory placements from the failed backtracking attempt
+            for section in self.sections:
+                for day in range(self.num_days):
+                    for slot in range(self.num_slots):
+                        cell = grids[section][day][slot]
+                        if cell is not None and not cell.get('isLab') and not cell.get('locked'):
+                            grids[section][day][slot] = None
+            # Remove any placements for current year's sections from the shared teacher schedule
+            for tid in list(teacher_schedule.keys()):
+                for ds in list(teacher_schedule[tid].keys()):
+                    if teacher_schedule[tid][ds] in self.sections:
+                        teacher_schedule[tid].pop(ds)
+                if not teacher_schedule[tid]:
+                    teacher_schedule.pop(tid)
+                    
+            # Re-add lab and locked placements for the current year
+            for section in self.sections:
+                for day in range(self.num_days):
+                    for slot in range(self.num_slots):
+                        cell = grids[section][day][slot]
+                        if cell and (cell.get('isLab') or cell.get('locked')):
+                            teacher_display = cell.get('teacher', '')
+                            for tid, tobj in self.teacher_map.items():
+                                t_disp = self._get_teacher_display(tid)
+                                if t_disp == teacher_display:
+                                    teacher_schedule.setdefault(tid, {})[(day, slot)] = section
+                                    break
+
+            # Recalculate remaining
+            for section in self.sections:
+                remaining_by_section[section] = sum(
+                    1 for u in theory_units if u['section'] == section
+                )
+
+            # Sort units: place subjects with fewer candidates first (most constrained first)
             self.rng.shuffle(theory_units)
+            theory_units.sort(key=lambda u: len(get_candidates(u)))
+
             unplaced: List[Dict[str, str]] = []
             for unit in theory_units:
                 subject = unit['subject']
@@ -404,7 +462,7 @@ class TimetableGenerator:
                     teacher_id = unit['teacher']
                     teacher_display = unit.get('teacherDisplay', teacher_id)
                     room = unit['room']
-                    log(f"[FALLBACK-PLACE] {subject} → Day {day} Slot {slot}")
+                    log(f"[FALLBACK-PLACE] {subject} → {section} Day {day} Slot {slot}")
                     grids[section][day][slot] = {
                         'subject': subject,
                         'teacher': teacher_display,
@@ -750,6 +808,8 @@ def generate_multi_year_timetable():
 
         # Shared teacher schedule across all years to prevent professor conflicts
         shared_teacher_schedule: Dict[str, Dict[Tuple[int, int], str]] = {}
+        # Shared room schedule across all years to prevent room conflicts for labs
+        shared_room_schedule: Dict[str, Dict[Tuple[int, int], str]] = {}
         
         results_by_year = {}
         all_warnings = []
@@ -757,26 +817,63 @@ def generate_multi_year_timetable():
         # Sort years so we process them in order (1st, 2nd, 3rd, 4th)
         year_keys = sorted(years_data.keys(), key=lambda x: int(x) if x.isdigit() else 0)
         
+        # ── Phase 1: Place ALL labs from ALL years first ──────────────
+        # This ensures user-placed labs are never skipped because a
+        # theory class from another year grabbed the professor's slot.
+        generators: Dict[str, TimetableGenerator] = {}
+        year_grids: Dict[str, Dict[str, List[List[Optional[Dict[str, Any]]]]]] = {}
+        year_lab_warnings: Dict[str, List[str]] = {}
+        
         for year_key in year_keys:
             year_data = years_data[year_key]
             year_label = year_data.get('yearLabel', f'Year {year_key}')
-            log(f"[MULTI-YEAR] Generating timetable for {year_label}")
+            log(f"[MULTI-YEAR] Phase 1 — placing labs for {year_label}")
+            
+            gen = TimetableGenerator(year_data, shared_teacher_schedule=shared_teacher_schedule)
+            grids = {section: gen._empty_grid() for section in gen.sections}
+            lab_warnings = gen._validate_and_place_labs(grids, shared_teacher_schedule, shared_room_schedule)
+            
+            generators[year_key] = gen
+            year_grids[year_key] = grids
+            year_lab_warnings[year_key] = lab_warnings
+        
+        # ── Phase 2: Generate theory for each year ────────────────────
+        # Labs are already in the grids and in shared_teacher_schedule,
+        # so theory placement will work around them correctly.
+        for year_key in year_keys:
+            year_data = years_data[year_key]
+            year_label = year_data.get('yearLabel', f'Year {year_key}')
+            log(f"[MULTI-YEAR] Phase 2 — placing theory for {year_label}")
+            
+            gen = generators[year_key]
+            grids = year_grids[year_key]
+            lab_warnings = year_lab_warnings[year_key]
             
             try:
-                generator = TimetableGenerator(year_data, shared_teacher_schedule=shared_teacher_schedule)
-                result = generator.generate()
+                success, theory_warnings = gen._fit_theory_subjects(grids, shared_teacher_schedule)
+                warnings = lab_warnings + theory_warnings
                 
-                # The teacher_schedule is mutated in-place, so shared_teacher_schedule
-                # now contains all placements from this year too
-                shared_teacher_schedule = result.pop('_teacher_schedule', shared_teacher_schedule)
+                if not success:
+                    raise ValueError("; ".join(warnings))
+                
+                warnings.extend(gen._validate_first_period(grids))
+                
+                section_timetables = gen._format_section_grids(grids)
+                teacher_timetables = gen._build_teacher_timetables(section_timetables)
+                
+                result = {
+                    'sectionTimetables': section_timetables,
+                    'teacherTimetables': teacher_timetables,
+                    'warnings': warnings,
+                }
                 
                 results_by_year[year_key] = {
                     'yearLabel': year_label,
                     'data': result,
                 }
                 
-                if result.get('warnings'):
-                    for w in result['warnings']:
+                if warnings:
+                    for w in warnings:
                         all_warnings.append(f"[{year_label}] {w}")
                         
             except ValueError as e:

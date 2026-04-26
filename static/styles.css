@@ -1462,15 +1462,69 @@ body {
     display: none !important;
 }
 
-.lab-dnd-layout {
+.lab-assign-layout {
     display: grid;
-    grid-template-columns: minmax(260px, 320px) 1fr;
+    grid-template-columns: 1fr 1fr;
     gap: 16px;
     margin-top: 12px;
 }
 
-.lab-dnd-layout .entry-card {
-    min-width: 0; /* allow inner scroll containers to work */
+@media (max-width: 900px) {
+    .lab-assign-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+.lab-assign-layout .entry-card {
+    min-width: 0;
+}
+
+.lab-assign-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.lab-assign-block {
+    border: 1px solid var(--accent-primary);
+    background: var(--accent-glow);
+    border-radius: var(--radius-md);
+    padding: 12px;
+}
+
+.lab-assign-block-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.lab-duration-badge {
+    background: var(--accent-primary);
+    color: white;
+    padding: 2px 10px;
+    border-radius: 100px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.lab-assign-controls {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.lab-assign-controls .form-select {
+    flex: 1;
+    min-width: 90px;
+    padding: 6px 8px;
+    font-size: 0.82rem;
+}
+
+.lab-assign-controls .btn {
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .lab-drop-table {
@@ -1497,11 +1551,38 @@ body {
     padding: 10px 12px;
     cursor: grab;
     user-select: none;
+    transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.lab-block:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+
+.lab-block.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
 }
 
 .lab-block.assigned {
     border-color: var(--accent-secondary);
     background: rgba(139, 92, 246, 0.15);
+}
+
+.lab-block.lab-block-selected {
+    border-color: var(--success);
+    background: rgba(34, 197, 94, 0.25);
+    box-shadow: 0 0 12px rgba(34, 197, 94, 0.3);
+    transform: scale(1.02);
+}
+
+.lab-block.lab-block-selected::after {
+    content: '✓ Click a slot to place';
+    display: block;
+    font-size: 0.7rem;
+    color: var(--success);
+    margin-top: 4px;
+    font-weight: 600;
 }
 
 .lab-grid-cell {
@@ -1527,10 +1608,9 @@ body {
     background: rgba(139, 92, 246, 0.2);
     border-left: 3px solid var(--accent-secondary) !important;
     font-weight: 600;
-}
-
-.lab-occupied-cont {
-    background: rgba(139, 92, 246, 0.08);
+    position: relative;
+    text-align: center;
+    padding: 6px 16px 6px 8px;
 }
 
 /* PDF Export Styles (Print) */
