@@ -5,7 +5,7 @@ function defaultYearConfig() {
         scheduleMode: 'class',
         sectionsPerCluster: 2,
         departments: [{ name: '', sections: 1 }],
-        subjects: [{ name: '', type: 'THEORY', hours: 3, lab_duration: 2 }],
+        subjects: [{ code: '', name: '', type: 'THEORY', hours: 3, lab_duration: 2 }],
         labs: [{ lab_id: 'LAB-1', lab_name: '', room_number: '' }],
         activeLabSection: '',
         labBlocks: [],
@@ -34,6 +34,76 @@ const state = {
 
 // Shortcut to get active year config
 function yc() { return state.yearConfigs[state.activeYear]; }
+
+// ─── LocalStorage Persistence ─────────────────────────────────
+const STORAGE_KEY = 'timetableai_state_v2';
+
+function saveStateToLocalStorage() {
+    try {
+        const toSave = {
+            selectedYears: state.selectedYears,
+            activeYear: state.activeYear,
+            yearConfigs: state.yearConfigs,
+            numDays: state.numDays,
+            numSlots: state.numSlots,
+            currentStep: state.currentStep,
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+    } catch (e) {
+        console.warn('[Storage] Failed to save:', e);
+    }
+}
+
+function loadStateFromLocalStorage() {
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (!saved) return false;
+        const parsed = JSON.parse(saved);
+        if (parsed.selectedYears && Array.isArray(parsed.selectedYears)) state.selectedYears = parsed.selectedYears;
+        if (parsed.activeYear) state.activeYear = parsed.activeYear;
+        if (parsed.yearConfigs) {
+            state.yearConfigs = {};
+            for (const [key, cfg] of Object.entries(parsed.yearConfigs)) {
+                state.yearConfigs[key] = { ...defaultYearConfig(), ...cfg };
+            }
+        }
+        if (parsed.numDays) state.numDays = parsed.numDays;
+        if (parsed.numSlots) state.numSlots = parsed.numSlots;
+        if (parsed.currentStep !== undefined) state.currentStep = parsed.currentStep;
+        return true;
+    } catch (e) {
+        console.warn('[Storage] Failed to load:', e);
+        return false;
+    }
+}
+
+function clearSavedState() {
+    localStorage.removeItem(STORAGE_KEY);
+    showToast('Saved data cleared. Reloading...', 'info');
+    setTimeout(() => location.reload(), 800);
+}
+
+// Auto-save every 2 seconds when state changes
+let _lastSavedStateHash = '';
+setInterval(() => {
+    try {
+        const current = JSON.stringify({
+            selectedYears: state.selectedYears,
+            activeYear: state.activeYear,
+            yearConfigs: state.yearConfigs,
+            numDays: state.numDays,
+            numSlots: state.numSlots,
+            currentStep: state.currentStep,
+        });
+        if (current !== _lastSavedStateHash) {
+            _lastSavedStateHash = current;
+            saveStateToLocalStorage();
+        }
+    } catch (e) { /* ignore */ }
+}, 2000);
+
+// Also save on page unload for safety
+window.addEventListener('beforeunload', () => saveStateToLocalStorage());
 
 // Proxy getters that read from active year config
 function getScheduleMode() { return yc().scheduleMode; }
@@ -71,6 +141,8 @@ function getTeacherIdForSectionSubject(section, subject) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    const restored = loadStateFromLocalStorage();
+    if (restored) console.log('[Storage] State restored from localStorage');
     renderStepper();
     renderStep();
 });
@@ -159,6 +231,12 @@ function renderStep0(card) {
                     </div>
                 `;
             }).join('')}
+        </div>
+
+        <div style="margin-top:20px;text-align:center;">
+            <button class="btn btn-secondary btn-small" onclick="clearSavedState()" style="opacity:0.6;font-size:0.78rem;">
+                🗑️ Clear All Saved Data
+            </button>
         </div>
 
         ${renderWizardActions(false, true)}
@@ -329,6 +407,11 @@ function renderSubjectEntry(subj, index) {
             ${yc().subjects.length > 1 ? `<button class="remove-entry" onclick="removeSubject(${index})">×</button>` : ''}
             <div class="entry-fields">
                 <div class="form-group">
+                    <label>Subject Code</label>
+                    <input type="text" class="form-input subj-code" data-index="${index}"
+                        value="${subj.code || ''}" placeholder="e.g. CS301">
+                </div>
+                <div class="form-group">
                     <label>Subject Name</label>
                     <input type="text" class="form-input subj-name" data-index="${index}"
                         value="${subj.name}" placeholder="e.g. Data Structures">
@@ -358,6 +441,11 @@ function renderSubjectEntry(subj, index) {
 }
 
 function bindStep2Events() {
+    document.querySelectorAll('.subj-code').forEach(el => {
+        el.addEventListener('input', (e) => {
+            yc().subjects[e.target.dataset.index].code = e.target.value;
+        });
+    });
     document.querySelectorAll('.subj-name').forEach(el => {
         el.addEventListener('input', (e) => {
             yc().subjects[e.target.dataset.index].name = e.target.value;
@@ -387,7 +475,7 @@ function bindStep2Events() {
 }
 
 function addSubject() {
-    yc().subjects.push({ name: '', type: 'THEORY', hours: 3, lab_duration: 2 });
+    yc().subjects.push({ code: '', name: '', type: 'THEORY', hours: 3, lab_duration: 2 });
     resetLabBoard();
     renderStep2(document.getElementById('wizardCard'));
 }
@@ -568,12 +656,41 @@ function renderStep5(card) {
 
     const teachersInCluster = yc().teachers.filter(t => String(t.cluster || 1) === String(activeCluster) && t.id.trim() && t.name.trim());
 
+    // Excel import status
+    const importStatus = yc()._excelImportStatus || null;
+
     card.innerHTML = `
         ${renderYearTabs()}
         <div class="step-header">
             <span class="step-badge">👩‍🏫 Step 6 of ${STEPS.length}</span>
             <h2>Professor Mapping — ${YEAR_LABELS[state.activeYear-1]}</h2>
-            <p>Enter professors with unique IDs. Then map each subject to a professor for the selected section.</p>
+            <p>Enter professors with unique IDs. Then map each subject to a professor for the selected section. You can also <strong>auto-import from Excel</strong>.</p>
+        </div>
+
+        <!-- Excel Upload Zone -->
+        <div class="excel-upload-section">
+            <div class="excel-upload-zone" id="excelUploadZone">
+                <div class="excel-upload-inner">
+                    <div class="excel-upload-icon">📊</div>
+                    <div class="excel-upload-title">Import from Excel</div>
+                    <div class="excel-upload-desc">Drag & drop <strong>.xlsx</strong> files here, or <span class="excel-upload-browse">click to browse</span></div>
+                    <div class="excel-upload-formats">Supports: Faculty Allotment, Section-wise Faculty Allotment</div>
+                </div>
+                <input type="file" id="excelFileInput" accept=".xlsx,.xls" multiple style="display:none;">
+            </div>
+            ${importStatus ? `
+                <div class="excel-import-status ${importStatus.type}">
+                    <span class="excel-import-status-icon">${importStatus.type === 'success' ? '✅' : importStatus.type === 'error' ? '❌' : '⏳'}</span>
+                    <div>
+                        <div class="excel-import-status-title">${escapeHtml(importStatus.title)}</div>
+                        <div class="excel-import-status-detail">${escapeHtml(importStatus.detail)}</div>
+                    </div>
+                </div>
+            ` : ''}
+        </div>
+
+        <div class="section-divider">
+            <span>OR enter manually</span>
         </div>
 
         <div class="entries-container">
@@ -643,6 +760,7 @@ function renderStep5(card) {
         ${renderWizardActions(true, true)}
     `;
 
+    // Bind professor input events
     document.querySelectorAll('.prof-id').forEach(el => {
         el.addEventListener('input', (e) => yc().teachers[e.target.dataset.index].id = e.target.value);
     });
@@ -685,6 +803,245 @@ function renderStep5(card) {
             }
         }
     });
+
+    // Bind Excel upload events
+    bindExcelUploadEvents();
+}
+
+// ─── Excel Upload Logic ──────────────────────────────────────
+
+function bindExcelUploadEvents() {
+    const zone = document.getElementById('excelUploadZone');
+    const fileInput = document.getElementById('excelFileInput');
+    if (!zone || !fileInput) return;
+
+    zone.addEventListener('click', () => fileInput.click());
+
+    zone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        zone.classList.add('drag-over');
+    });
+
+    zone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        zone.classList.remove('drag-over');
+    });
+
+    zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        zone.classList.remove('drag-over');
+        if (e.dataTransfer.files.length > 0) {
+            handleExcelFiles(e.dataTransfer.files);
+        }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            handleExcelFiles(e.target.files);
+        }
+    });
+}
+
+async function handleExcelFiles(files) {
+    const yearLabel = YEAR_LABELS[state.activeYear - 1];
+    let totalImported = 0;
+
+    for (const file of files) {
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (ext !== 'xlsx' && ext !== 'xls') {
+            showToast(`Skipped ${file.name} — unsupported format.`, 'error');
+            continue;
+        }
+
+        yc()._excelImportStatus = { type: 'loading', title: 'Processing...', detail: `Uploading ${file.name}` };
+        renderStep();
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await fetch('/api/upload-excel', {
+                method: 'POST',
+                body: formData,
+            });
+            const result = await response.json();
+
+            if (!response.ok || result.error) {
+                throw new Error(result.error || 'Upload failed');
+            }
+
+            // Process the parsed data
+            const imported = applyExcelImport(result.data, yearLabel);
+            totalImported += imported;
+
+        } catch (err) {
+            yc()._excelImportStatus = { type: 'error', title: 'Import Failed', detail: err.message };
+            showToast(`Error importing ${file.name}: ${err.message}`, 'error');
+            renderStep();
+            return;
+        }
+    }
+
+    if (totalImported > 0) {
+        yc()._excelImportStatus = {
+            type: 'success',
+            title: 'Import Successful',
+            detail: `${totalImported} record(s) imported for ${yearLabel}. Review professors and mappings below.`,
+        };
+        showToast(`✅ ${totalImported} record(s) imported for ${yearLabel}`, 'success');
+    } else {
+        yc()._excelImportStatus = {
+            type: 'error',
+            title: 'No Data Imported',
+            detail: `No matching records found for ${yearLabel}. Check if the year column matches.`,
+        };
+        showToast(`No records matched ${yearLabel}. Check file contents.`, 'info');
+    }
+
+    renderStep();
+}
+
+function applyExcelImport(data, yearLabel) {
+    const yearNum = state.activeYear;
+    const sections = getSections();
+    let importedCount = 0;
+
+    // Gather existing professor IDs to avoid duplicates
+    const existingProfIds = new Set(yc().teachers.map(t => t.id.trim()).filter(Boolean));
+
+    for (const sheetResult of (data.sheets || [])) {
+        if (sheetResult.error) continue;
+
+        if (sheetResult.type === 'faculty_allotment') {
+            for (const rec of sheetResult.records) {
+                // Filter by year if the record has a year
+                if (rec.year !== null && rec.year !== yearNum) continue;
+
+                const facId = rec.faculty_id;
+                const facName = rec.faculty_name;
+                const subjCode = rec.subject_code || '';
+                const subjName = rec.subject_name || rec.subject_code;
+                const cluster = rec.cluster || 1;
+
+                if (!facId || !facName || !subjName) continue;
+
+                // Add professor if not already present
+                if (!existingProfIds.has(facId)) {
+                    // Remove the default empty prof entry if it's the only one
+                    if (yc().teachers.length === 1 && !yc().teachers[0].id.trim() && !yc().teachers[0].name.trim()) {
+                        yc().teachers = [];
+                    }
+                    yc().teachers.push({
+                        id: facId,
+                        name: facName,
+                        cluster: cluster,
+                        max_consecutive_classes: 2,
+                        availabilityText: '',
+                    });
+                    existingProfIds.add(facId);
+                }
+
+                // Add subject if not already present
+                const existingSubj = yc().subjects.find(s => s.name.trim().toLowerCase() === subjName.toLowerCase());
+                if (!existingSubj) {
+                    // If the only subject is the empty default, replace it
+                    if (yc().subjects.length === 1 && !yc().subjects[0].name.trim()) {
+                        yc().subjects[0].name = subjName;
+                        yc().subjects[0].code = subjCode;
+                        yc().subjects[0].type = 'THEORY';
+                    } else {
+                        yc().subjects.push({ code: subjCode, name: subjName, type: 'THEORY', hours: 3, lab_duration: 2 });
+                    }
+                }
+
+                // Map professor → subject for matching sections
+                if (rec.sections && rec.sections.length > 0) {
+                    for (const secName of rec.sections) {
+                        // Try to find matching section
+                        const matchedSection = sections.find(s =>
+                            s.toLowerCase().includes(secName.toLowerCase()) ||
+                            secName.toLowerCase().includes(s.toLowerCase())
+                        );
+                        if (matchedSection) {
+                            const mapKey = `${matchedSection}::${subjName}`;
+                            yc().sectionSubjectTeacherMap[mapKey] = facId;
+                        }
+                    }
+                } else {
+                    // No specific sections — map to ALL sections
+                    for (const sec of sections) {
+                        const mapKey = `${sec}::${subjName}`;
+                        if (!yc().sectionSubjectTeacherMap[mapKey]) {
+                            yc().sectionSubjectTeacherMap[mapKey] = facId;
+                        }
+                    }
+                }
+
+                importedCount++;
+            }
+        } else if (sheetResult.type === 'section_wise') {
+            for (const rec of sheetResult.records) {
+                if (rec.year !== null && rec.year !== yearNum) continue;
+
+                const section = rec.section;
+                const facId = rec.faculty_id;
+                const facName = rec.faculty_name;
+                const subjCode = rec.subject_code || '';
+                const subjName = rec.subject_name || rec.subject_code;
+
+                if (!facName || !subjName) continue;
+
+                // Generate ID if missing
+                const effectiveId = facId || facName.replace(/\s+/g, '-').toUpperCase().substring(0, 8);
+
+                // Add professor if not already present
+                if (!existingProfIds.has(effectiveId)) {
+                    if (yc().teachers.length === 1 && !yc().teachers[0].id.trim() && !yc().teachers[0].name.trim()) {
+                        yc().teachers = [];
+                    }
+                    yc().teachers.push({
+                        id: effectiveId,
+                        name: facName,
+                        cluster: 1,
+                        max_consecutive_classes: 2,
+                        availabilityText: '',
+                    });
+                    existingProfIds.add(effectiveId);
+                }
+
+                // Add subject if not present
+                const existingSubj = yc().subjects.find(s => s.name.trim().toLowerCase() === subjName.toLowerCase());
+                if (!existingSubj) {
+                    if (yc().subjects.length === 1 && !yc().subjects[0].name.trim()) {
+                        yc().subjects[0].name = subjName;
+                        yc().subjects[0].code = subjCode;
+                        yc().subjects[0].type = 'THEORY';
+                    } else {
+                        yc().subjects.push({ code: subjCode, name: subjName, type: 'THEORY', hours: 3, lab_duration: 2 });
+                    }
+                }
+
+                // Map professor to section if we can match it
+                if (section) {
+                    const matchedSection = sections.find(s =>
+                        s.toLowerCase().includes(section.toLowerCase()) ||
+                        section.toLowerCase().includes(s.toLowerCase())
+                    );
+                    if (matchedSection) {
+                        const mapKey = `${matchedSection}::${subjName}`;
+                        yc().sectionSubjectTeacherMap[mapKey] = effectiveId;
+                    }
+                }
+
+                importedCount++;
+            }
+        }
+    }
+
+    return importedCount;
 }
 
 function renderStep6(card) {
@@ -717,9 +1074,16 @@ function renderStep7(card) {
         const secCount = c.departments.reduce((sum, d) => sum + (parseInt(d.sections) || 1), 0);
         yearSummaryHtml += `
             <div class="summary-item" style="border-left:3px solid var(--accent-primary);padding-left:12px;">
-                <div class="summary-label">🎓 ${YEAR_LABELS[y-1]}</div>
-                <div style="font-size:.85rem;color:var(--text-secondary);margin-top:4px;">
-                    ${secCount} section(s) · ${c.subjects.filter(s=>s.name.trim()).length} subjects · ${c.teachers.filter(t=>t.id.trim()).length} professors
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+                    <div>
+                        <div class="summary-label">🎓 ${YEAR_LABELS[y-1]}</div>
+                        <div style="font-size:.85rem;color:var(--text-secondary);margin-top:4px;">
+                            ${secCount} section(s) · ${c.subjects.filter(s=>s.name.trim()).length} subjects · ${c.teachers.filter(t=>t.id.trim()).length} professors
+                        </div>
+                    </div>
+                    <button class="btn btn-outline btn-small" onclick="generateSingleYear(${y})" style="flex-shrink:0;">
+                        🚀 Generate Only
+                    </button>
                 </div>
             </div>
         `;
@@ -728,13 +1092,13 @@ function renderStep7(card) {
         <div class="generate-step-content">
             <span class="generate-icon">🚀</span>
             <h3>Generate Multi-Year Timetable</h3>
-            <p>Timetables for all selected years will be generated together. Shared professors across years won't get conflicting slots.</p>
+            <p>Generate timetables for all selected years together (shared professors won't conflict), or generate a single year independently.</p>
             <div class="summary-grid" style="text-align:left;">
                 ${yearSummaryHtml}
                 <div class="summary-item"><div class="summary-label">Working Days</div><div class="summary-value">${state.numDays}</div></div>
                 <div class="summary-item"><div class="summary-label">Slots/Day</div><div class="summary-value">${state.numSlots}</div></div>
             </div>
-            <button class="btn btn-primary btn-generate" onclick="generateTimetable()">Generate Timetable</button>
+            <button class="btn btn-primary btn-generate" onclick="generateTimetable()">🚀 Generate All Years Together</button>
             ${state.lastGenerationError ? `
             <div style="margin-top:16px; padding:12px; border:1px solid var(--danger); border-radius:10px; background:var(--danger-bg);">
                 <div style="font-weight:700; color:var(--danger);">Generation Issue</div>
@@ -920,6 +1284,78 @@ async function generateTimetable() {
 function retryGenerateTimetable() {
     state.retrySeed = Date.now();
     generateTimetable();
+}
+
+async function generateSingleYear(yearNum) {
+    const c = state.yearConfigs[yearNum];
+    if (!c) {
+        showToast(`No configuration found for ${YEAR_LABELS[yearNum-1]}`, 'error');
+        return;
+    }
+
+    const teachers = c.teachers
+        .filter(t => t.id.trim() && t.name.trim())
+        .map(t => ({
+            id: t.id.trim(),
+            name: t.name.trim(),
+            cluster: t.cluster || 1,
+            max_consecutive_classes: t.max_consecutive_classes || c.constraints.maxConsecutiveClasses,
+            availability: parseAvailabilityText(t.availabilityText || '')
+        }));
+
+    const yearsPayload = {};
+    yearsPayload[String(yearNum)] = {
+        yearLabel: YEAR_LABELS[yearNum - 1],
+        scheduleMode: c.scheduleMode,
+        sectionsPerCluster: c.sectionsPerCluster,
+        departments: c.departments.filter(d => d.name.trim()),
+        numDays: state.numDays,
+        numSlots: state.numSlots,
+        subjects: c.subjects.filter(s => s.name.trim()),
+        labs: c.labs.filter(l => l.lab_name.trim()),
+        labAssignments: c.labAssignments,
+        teachers,
+        sectionSubjectTeacherMap: c.sectionSubjectTeacherMap,
+        classrooms: c.classrooms,
+        constraints: c.constraints,
+        retrySeed: state.retrySeed,
+    };
+
+    const payload = {
+        years: yearsPayload,
+        numDays: state.numDays,
+        numSlots: state.numSlots,
+    };
+
+    document.getElementById('loadingOverlay').classList.add('active');
+
+    try {
+        const response = await fetch('/api/generate-multi-year', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || result.error) {
+            throw new Error(result.error || 'Failed to generate timetable');
+        }
+
+        state.results = result;
+        state.lastGenerationError = '';
+        showResults(result);
+        showToast(`${YEAR_LABELS[yearNum-1]} timetable generated successfully!`, 'success');
+        if (result.warnings && result.warnings.length) {
+            showToast(`Generated with ${result.warnings.length} warning(s).`, 'info');
+        }
+    } catch (error) {
+        state.lastGenerationError = error.message || 'Generation failed';
+        if (state.currentStep === 7) renderStep();
+        showToast('Generation failed: ' + (error.message || ''), 'error');
+    } finally {
+        document.getElementById('loadingOverlay').classList.remove('active');
+    }
 }
 
 function showResults(result) {

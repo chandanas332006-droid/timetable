@@ -1652,3 +1652,160 @@ body {
         print-color-adjust: exact;
     }
 }
+
+/* ── Excel Upload Zone ── */
+.excel-upload-section {
+    margin-bottom: 24px;
+}
+
+.excel-upload-zone {
+    border: 2px dashed rgba(99, 102, 241, 0.35);
+    border-radius: var(--radius-lg);
+    padding: 32px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.04), rgba(139, 92, 246, 0.04));
+    position: relative;
+    overflow: hidden;
+}
+
+.excel-upload-zone::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 200%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent 0%, rgba(99, 102, 241, 0.06) 50%, transparent 100%);
+    animation: excelShimmer 4s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes excelShimmer {
+    0% { transform: translateX(-50%); }
+    100% { transform: translateX(50%); }
+}
+
+.excel-upload-zone:hover {
+    border-color: var(--accent-primary);
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.08));
+    box-shadow: 0 0 30px rgba(99, 102, 241, 0.1);
+    transform: translateY(-1px);
+}
+
+.excel-upload-zone.drag-over {
+    border-color: var(--success);
+    background: rgba(34, 197, 94, 0.08);
+    border-style: solid;
+    box-shadow: 0 0 40px rgba(34, 197, 94, 0.15);
+    transform: scale(1.01);
+}
+
+.excel-upload-inner {
+    position: relative;
+    z-index: 1;
+}
+
+.excel-upload-icon {
+    font-size: 2.5rem;
+    margin-bottom: 12px;
+    display: block;
+    animation: float 3s ease-in-out infinite;
+}
+
+.excel-upload-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-heading);
+    margin-bottom: 6px;
+}
+
+.excel-upload-desc {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.excel-upload-browse {
+    color: var(--accent-tertiary);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.excel-upload-formats {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    padding: 4px 12px;
+    background: rgba(99, 102, 241, 0.08);
+    border-radius: 100px;
+    display: inline-block;
+    margin-top: 4px;
+}
+
+/* Excel Import Status */
+.excel-import-status {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 18px;
+    border-radius: var(--radius-md);
+    margin-top: 14px;
+    animation: slideUp 0.3s ease-out;
+}
+
+.excel-import-status.success {
+    background: var(--success-bg);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.excel-import-status.error {
+    background: var(--danger-bg);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.excel-import-status.loading {
+    background: var(--info-bg);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.excel-import-status-icon {
+    font-size: 1.2rem;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.excel-import-status-title {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--text-heading);
+    margin-bottom: 2px;
+}
+
+.excel-import-status-detail {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+/* Section Divider */
+.section-divider {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 28px 0;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.section-divider::before,
+.section-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+}

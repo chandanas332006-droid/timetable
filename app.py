@@ -764,8 +764,243 @@ def get_timetable() -> List[Dict[str, Any]]:
 
 
 # ─────────────────────────────────────────────────────────
+# Excel Parsing Helpers
+# ─────────────────────────────────────────────────────────
+
+try:
+    from openpyxl import load_workbook
+except ImportError:
+    load_workbook = None  # type: ignore
+
+
+def _normalize_header(h: str) -> str:
+    """Lowercase, strip, collapse whitespace to single space."""
+    import re
+    return re.sub(r'\s+', ' ', str(h).strip().lower())
+
+
+def _find_header_row(ws, max_scan: int = 15):
+    """Scan first `max_scan` rows for the likely header row.
+    Returns (row_index_1_based, {normalized_header: col_index_0_based})."""
+    for row_idx in range(1, max_scan + 1):
+        cells = [str(c.value or '').strip() for c in ws[row_idx]]
+        non_empty = [c for c in cells if c]
+        if len(non_empty) >= 3:
+            mapping = {}
+            for col_idx, cell_val in enumerate(cells):
+                if cell_val:
+                    mapping[_normalize_header(cell_val)] = col_idx
+            return row_idx, mapping
+    return None, {}
+
+
+# Column alias maps — maps our canonical key to possible header variants
+_FACULTY_ALLOTMENT_ALIASES = {
+    'faculty_id': ['faculty id', 'fac id', 'faculty code', 'emp id', 'employee id', 'id'],
+    'faculty_name': ['faculty name', 'name of faculty', 'teacher name', 'professor name', 'name', 'faculty'],
+    'subject_code': ['subject code', 'sub code', 'course code', 'code'],
+    'subject_name': ['subject name', 'sub name', 'course name', 'subject', 'course'],
+    'cluster': ['cluster', 'cluster no', 'cluster number', 'grp', 'group'],
+    'year': ['year', 'yr', 'academic year', 'batch year'],
+    'sections': ['assigned sections', 'sections', 'section', 'sec', 'allotted sections', 'assigned section'],
+}
+
+_SECTION_WISE_ALIASES = {
+    'section': ['section name', 'section', 'sec', 'class'],
+    'year': ['year', 'yr', 'academic year', 'batch year'],
+    'subject_code': ['subject code', 'sub code', 'course code', 'code'],
+    'subject_name': ['subject name', 'sub name', 'course name', 'subject', 'course'],
+    'faculty_name': ['faculty name', 'name of faculty', 'teacher name', 'professor name', 'name', 'faculty'],
+    'faculty_id': ['faculty id', 'fac id', 'faculty code', 'emp id', 'employee id', 'id'],
+}
+
+
+def _resolve_columns(header_map: dict, aliases: dict) -> dict:
+    """Given a {normalized_header: col_idx} map and an alias dict, resolve
+    canonical keys to column indices. Returns {canonical_key: col_idx}."""
+    resolved = {}
+    for canonical, candidates in aliases.items():
+        for candidate in candidates:
+            if candidate in header_map:
+                resolved[canonical] = header_map[candidate]
+                break
+    return resolved
+
+
+def _parse_faculty_allotment(ws) -> dict:
+    """Parse a 'Faculty allotment Cluster-X.xlsx' style worksheet."""
+    header_row, header_map = _find_header_row(ws)
+    if not header_row:
+        return {'error': 'Could not find header row in Faculty allotment sheet.'}
+
+    cols = _resolve_columns(header_map, _FACULTY_ALLOTMENT_ALIASES)
+    missing = [k for k in ['faculty_id', 'faculty_name', 'subject_name'] if k not in cols]
+    if missing:
+        return {'error': f'Missing required columns in Faculty allotment: {", ".join(missing)}. Found headers: {list(header_map.keys())}'}
+
+    records = []
+    for row in ws.iter_rows(min_row=header_row + 1, values_only=False):
+        vals = [c.value for c in row]
+        fac_id = str(vals[cols['faculty_id']] or '').strip()
+        fac_name = str(vals[cols['faculty_name']] or '').strip()
+        if not fac_id and not fac_name:
+            continue  # skip empty rows
+
+        subj_code = str(vals[cols.get('subject_code', -1)] or '').strip() if 'subject_code' in cols else ''
+        subj_name = str(vals[cols['subject_name']] or '').strip()
+        cluster = str(vals[cols.get('cluster', -1)] or '1').strip() if 'cluster' in cols else '1'
+        year = str(vals[cols.get('year', -1)] or '').strip() if 'year' in cols else ''
+        sections_raw = str(vals[cols.get('sections', -1)] or '').strip() if 'sections' in cols else ''
+
+        # Parse cluster number
+        try:
+            cluster_num = int(''.join(c for c in cluster if c.isdigit()) or '1')
+        except ValueError:
+            cluster_num = 1
+
+        # Parse year
+        year_num = None
+        if year:
+            digits = ''.join(c for c in year if c.isdigit())
+            if digits:
+                year_num = int(digits)
+                if year_num > 4:
+                    year_num = None  # invalid
+
+        # Parse sections
+        section_list = []
+        if sections_raw:
+            import re
+            section_list = [s.strip() for s in re.split(r'[,;/\n]', sections_raw) if s.strip()]
+
+        records.append({
+            'faculty_id': fac_id,
+            'faculty_name': fac_name,
+            'subject_code': subj_code,
+            'subject_name': subj_name,
+            'cluster': cluster_num,
+            'year': year_num,
+            'sections': section_list,
+        })
+
+    return {'type': 'faculty_allotment', 'records': records}
+
+
+def _parse_section_wise(ws) -> dict:
+    """Parse a 'Section wise faculty allotment.xlsx' style worksheet."""
+    header_row, header_map = _find_header_row(ws)
+    if not header_row:
+        return {'error': 'Could not find header row in Section-wise allotment sheet.'}
+
+    cols = _resolve_columns(header_map, _SECTION_WISE_ALIASES)
+    missing = [k for k in ['section', 'subject_name', 'faculty_name'] if k not in cols]
+    if missing:
+        return {'error': f'Missing required columns in Section-wise allotment: {", ".join(missing)}. Found headers: {list(header_map.keys())}'}
+
+    records = []
+    for row in ws.iter_rows(min_row=header_row + 1, values_only=False):
+        vals = [c.value for c in row]
+        section = str(vals[cols['section']] or '').strip()
+        fac_name = str(vals[cols['faculty_name']] or '').strip()
+        if not section and not fac_name:
+            continue
+
+        subj_code = str(vals[cols.get('subject_code', -1)] or '').strip() if 'subject_code' in cols else ''
+        subj_name = str(vals[cols['subject_name']] or '').strip()
+        fac_id = str(vals[cols.get('faculty_id', -1)] or '').strip() if 'faculty_id' in cols else ''
+        year_raw = str(vals[cols.get('year', -1)] or '').strip() if 'year' in cols else ''
+
+        year_num = None
+        if year_raw:
+            digits = ''.join(c for c in year_raw if c.isdigit())
+            if digits:
+                year_num = int(digits)
+                if year_num > 4:
+                    year_num = None
+
+        records.append({
+            'section': section,
+            'year': year_num,
+            'subject_code': subj_code,
+            'subject_name': subj_name,
+            'faculty_name': fac_name,
+            'faculty_id': fac_id,
+        })
+
+    return {'type': 'section_wise', 'records': records}
+
+
+def _detect_and_parse_workbook(file_storage) -> dict:
+    """Accept a file upload, detect its type, and return parsed data."""
+    if load_workbook is None:
+        return {'error': 'openpyxl is not installed on the server.'}
+
+    import io
+    try:
+        wb = load_workbook(io.BytesIO(file_storage.read()), data_only=True)
+    except Exception as e:
+        return {'error': f'Could not open Excel file: {str(e)}'}
+
+    all_results = []
+    for sheet_name in wb.sheetnames:
+        ws = wb[sheet_name]
+        header_row, header_map = _find_header_row(ws)
+        if not header_row:
+            continue
+
+        headers_lower = set(header_map.keys())
+
+        # Heuristic: if 'section name' or 'section' is a header and 'cluster' is not → section_wise
+        has_section = any(k in headers_lower for k in ['section name', 'section', 'sec', 'class'])
+        has_cluster = any(k in headers_lower for k in ['cluster', 'cluster no', 'cluster number'])
+
+        if has_section and not has_cluster:
+            result = _parse_section_wise(ws)
+        else:
+            result = _parse_faculty_allotment(ws)
+
+        if 'error' in result:
+            result['sheet'] = sheet_name
+        else:
+            result['sheet'] = sheet_name
+        all_results.append(result)
+
+    if not all_results:
+        return {'error': 'No valid data sheets found in the uploaded file.'}
+
+    return {'sheets': all_results}
+
+
+# ─────────────────────────────────────────────────────────
 # API Endpoints
 # ─────────────────────────────────────────────────────────
+
+@app.route('/api/upload-excel', methods=['POST'])
+def upload_excel():
+    """Upload and parse an Excel file for faculty/subject data."""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file uploaded'}), 400
+
+        file = request.files['file']
+        if not file.filename:
+            return jsonify({'error': 'Empty filename'}), 400
+
+        ext = os.path.splitext(file.filename)[1].lower()
+        if ext not in ('.xlsx', '.xls'):
+            return jsonify({'error': f'Unsupported file type: {ext}. Please upload .xlsx files.'}), 400
+
+        result = _detect_and_parse_workbook(file)
+
+        if 'error' in result:
+            return jsonify({'error': result['error']}), 400
+
+        return jsonify({'success': True, 'data': result})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
 
 @app.route('/api/generate', methods=['POST'])
 def generate_timetable():
